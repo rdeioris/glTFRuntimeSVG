@@ -26,10 +26,10 @@ class GLTFRUNTIMESVG_API UglTFRuntimeSVGFunctionLibrary : public UBlueprintFunct
 
 public:
 	UFUNCTION(BlueprintCallable, meta = (AutoCreateRefTerm = "ImagesConfig,TextureSampler"), Category = "glTFRuntime|SVG")
-	static UTexture2D* RenderSVGToTexture2D(UglTFRuntimeAsset* Asset, const int32 Width, const int32 Height, const EglTFRuntimeSVGsRGBMode SRGBMode, const FglTFRuntimeImagesConfig& ImagesConfig, const FglTFRuntimeTextureSampler& TextureSampler);
+	static UTexture2D* RenderSVGToTexture2D(UglTFRuntimeAsset* Asset, const FString& NodeID, const int32 Width, const int32 Height, const EglTFRuntimeSVGsRGBMode SRGBMode, const FglTFRuntimeImagesConfig& ImagesConfig, const FglTFRuntimeTextureSampler& TextureSampler);
 
 	UFUNCTION(BlueprintCallable, meta = (AutoCreateRefTerm = "ImagesConfig,TextureSampler"), Category = "glTFRuntime|SVG")
-	static void RenderSVGToTexture2DAsync(UglTFRuntimeAsset* Asset, const int32 Width, const int32 Height, const EglTFRuntimeSVGsRGBMode SRGBMode, const FglTFRuntimeImagesConfig& ImagesConfig, const FglTFRuntimeTextureSampler& TextureSampler, const FglTFRuntimeTexture2DAsync& OnTexture2D);
+	static void RenderSVGToTexture2DAsync(UglTFRuntimeAsset* Asset, const FString& NodeID, const int32 Width, const int32 Height, const EglTFRuntimeSVGsRGBMode SRGBMode, const FglTFRuntimeImagesConfig& ImagesConfig, const FglTFRuntimeTextureSampler& TextureSampler, const FglTFRuntimeTexture2DAsync& OnTexture2D);
 
-	static bool RenderSVGToMipMap(const TArray64<uint8>& Blob, const int32 Width, const int32 Height, FglTFRuntimeMipMap& MipMap);
+	static bool RenderSVGToMipMap(const TArray64<uint8>& Blob, const FString& NodeID, const int32 Width, const int32 Height, FglTFRuntimeMipMap& MipMap);
 };

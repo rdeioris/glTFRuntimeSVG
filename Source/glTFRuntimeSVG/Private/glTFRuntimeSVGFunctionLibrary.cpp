@@ -3,12 +3,17 @@
 
 #include "glTFRuntimeSVGFunctionLibrary.h"
 
-UTexture2D* UglTFRuntimeSVGFunctionLibrary::RenderSVGToTexture2D(UglTFRuntimeAsset* Asset, const int32 Width, const int32 Height, const EglTFRuntimeSVGsRGBMode SRGBMode, const FglTFRuntimeImagesConfig& ImagesConfig, const FglTFRuntimeTextureSampler& TextureSampler)
+UTexture2D* UglTFRuntimeSVGFunctionLibrary::RenderSVGToTexture2D(UglTFRuntimeAsset* Asset, const FString& NodeID, const int32 Width, const int32 Height, const EglTFRuntimeSVGsRGBMode SRGBMode, const FglTFRuntimeImagesConfig& ImagesConfig, const FglTFRuntimeTextureSampler& TextureSampler)
 {
+	if (!Asset)
+	{
+		return nullptr;
+	}
+
 	const TArray64<uint8>& Blob = Asset->GetParser()->GetBlob();
 
 	FglTFRuntimeMipMap MipMap(-1);
-	if (!RenderSVGToMipMap(Blob, Width, Height, MipMap))
+	if (!RenderSVGToMipMap(Blob, NodeID, Width, Height, MipMap))
 	{
 		return nullptr;
 	}
@@ -26,14 +31,19 @@ UTexture2D* UglTFRuntimeSVGFunctionLibrary::RenderSVGToTexture2D(UglTFRuntimeAss
 	return Asset->GetParser()->BuildTexture(GetTransientPackage(), Mips, TrueImagesConfig, TextureSampler);
 }
 
-void UglTFRuntimeSVGFunctionLibrary::RenderSVGToTexture2DAsync(UglTFRuntimeAsset* Asset, const int32 Width, const int32 Height, const EglTFRuntimeSVGsRGBMode SRGBMode, const FglTFRuntimeImagesConfig& ImagesConfig, const FglTFRuntimeTextureSampler& TextureSampler, const FglTFRuntimeTexture2DAsync& OnTexture2D)
+void UglTFRuntimeSVGFunctionLibrary::RenderSVGToTexture2DAsync(UglTFRuntimeAsset* Asset, const FString& NodeID, const int32 Width, const int32 Height, const EglTFRuntimeSVGsRGBMode SRGBMode, const FglTFRuntimeImagesConfig& ImagesConfig, const FglTFRuntimeTextureSampler& TextureSampler, const FglTFRuntimeTexture2DAsync& OnTexture2D)
 {
-	Async(EAsyncExecution::Thread, [Asset, Width, Height, SRGBMode, ImagesConfig, TextureSampler, OnTexture2D]()
+	if (!Asset)
+	{
+		return;
+	}
+
+	Async(EAsyncExecution::Thread, [Asset, NodeID, Width, Height, SRGBMode, ImagesConfig, TextureSampler, OnTexture2D]()
 		{
 			const TArray64<uint8> Blob = Asset->GetParser()->GetBlob();
 
 			FglTFRuntimeMipMap MipMap(-1);
-			if (!RenderSVGToMipMap(Blob, Width, Height, MipMap))
+			if (!RenderSVGToMipMap(Blob, NodeID, Width, Height, MipMap))
 			{
 				FGraphEventRef Task = FFunctionGraphTask::CreateAndDispatchWhenReady([OnTexture2D]()
 					{
@@ -61,7 +71,7 @@ void UglTFRuntimeSVGFunctionLibrary::RenderSVGToTexture2DAsync(UglTFRuntimeAsset
 		});
 }
 
-bool UglTFRuntimeSVGFunctionLibrary::RenderSVGToMipMap(const TArray64<uint8>& Blob, const int32 Width, const int32 Height, FglTFRuntimeMipMap& MipMap)
+bool UglTFRuntimeSVGFunctionLibrary::RenderSVGToMipMap(const TArray64<uint8>& Blob, const FString& NodeID, const int32 Width, const int32 Height, FglTFRuntimeMipMap& MipMap)
 {
 	resvg_render_tree* SVGRenderTree = nullptr;
 
@@ -71,7 +81,22 @@ bool UglTFRuntimeSVGFunctionLibrary::RenderSVGToMipMap(const TArray64<uint8>& Bl
 		return false;
 	}
 
+	if (resvg_is_image_empty(SVGRenderTree))
+	{
+		UE_LOG(LogGLTFRuntime, Error, TEXT("SVG blob is empty"));
+		return false;
+	}
+
 	resvg_size SVGSize = resvg_get_image_size(SVGRenderTree);
+
+	if (!NodeID.IsEmpty())
+	{
+		if (!resvg_node_exists(SVGRenderTree, TCHAR_TO_UTF8(*NodeID)))
+		{
+			UE_LOG(LogGLTFRuntime, Error, TEXT("Unable to find Node \"%s\" in the SVG blob"), *NodeID);
+			return false;
+		}
+	}
 
 	int32 TrueWidth = Width;
 	int32 TrueHeight = Height;
@@ -102,7 +127,14 @@ bool UglTFRuntimeSVGFunctionLibrary::RenderSVGToMipMap(const TArray64<uint8>& Bl
 	TArray64<uint8> Pixels;
 	Pixels.AddZeroed(TrueWidth * TrueHeight * 4);
 
-	resvg_render(SVGRenderTree, SVGTransform, TrueWidth, TrueHeight, reinterpret_cast<char*>(Pixels.GetData()));
+	if (NodeID.IsEmpty())
+	{
+		resvg_render(SVGRenderTree, SVGTransform, TrueWidth, TrueHeight, reinterpret_cast<char*>(Pixels.GetData()));
+	}
+	else
+	{
+		resvg_render_node(SVGRenderTree, TCHAR_TO_UTF8(*NodeID), SVGTransform, TrueWidth, TrueHeight, reinterpret_cast<char*>(Pixels.GetData()));
+	}
 
 	resvg_tree_destroy(SVGRenderTree);
 
